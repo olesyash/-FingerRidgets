@@ -4,71 +4,9 @@ from skimage.morphology import skeletonize as ski_skeletonize
 import os
 from scipy import ndimage
 from scipy.ndimage import rotate, grey_dilation
-from abc import ABC, abstractmethod
 import argparse
-
-class FingerRegionRecognizer(ABC):
-    """
-    The FingerReGionRecognizer interface declares the operations that all concrete FingerRegionRecognizers
-    must implement.
-    """
-    @abstractmethod
-    def normalize_and_segment(self) -> str:
-        pass
-
-
-    @abstractmethod
-    def lines_orientation(self) -> str:
-        pass
-
-    @abstractmethod
-    def calculate_ridge_frequencies(self) -> str:
-        pass
-
-    @abstractmethod
-    def calculate_block_frequencies(self) -> str:
-        pass
-
-    @abstractmethod
-    def apply_gabor_filter(self) -> str:
-        pass
-
-    @abstractmethod
-    def skeletonize(self) -> str:
-        pass
-
-    @abstractmethod
-    def detect_minutiae(self) -> str:
-        pass
-
-    @abstractmethod
-    def calculate_minutiae_weights(self) -> str:
-        pass
-
-    @abstractmethod 
-    def count_lines(self) -> str:
-        pass
-
-    @abstractmethod
-    def count_diagonal_lines(self) -> str:
-        pass
-
-    @abstractmethod
-    def draw_diagonal(self) -> str:
-        pass
-
-    @abstractmethod
-    def get_best_region(self) -> str:
-        pass
-
-    @abstractmethod
-    def draw_ridges_count_on_region(self) -> str:
-        pass
-
-    @abstractmethod
-    def count_fingerprint_ridges(self) -> str:
-        pass
-
+from abc_finger_region_recognizer import FingerRegionRecognizer
+from second_imlementation import SecondImplementation
 
 
 class ConcreteFingerRegionRecognizer(FingerRegionRecognizer):
@@ -353,6 +291,7 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizer):
 if __name__ == '__main__':
     input_path = './all_png_files/M89_f0104_08.png'
     output_path = './all_png_files_out/'
+    not_working_out = './not_working/'
 
     parser = argparse.ArgumentParser(description='Process some images.')
     parser.add_argument('-i', dest="img_name", type=str, help='Path to the input images', default=input_path)
@@ -371,7 +310,11 @@ if __name__ == '__main__':
     greyscale_image = cv2.imread(img_name, 0)
     print(img_name)
 
-    working_alg = ConcreteFingerRegionRecognizer()
-    output_image = working_alg.count_fingerprint_ridges(greyscale_image)
+    # working_alg = ConcreteFingerRegionRecognizer()
+    # output_image = working_alg.count_fingerprint_ridges(greyscale_image)
+    # cv2.imwrite(output_path + img_name, output_image)
 
-    cv2.imwrite(output_path + img_name, output_image)
+    not_working_alg = SecondImplementation()
+    output_image_not_working = not_working_alg.count_fingerprint_ridges(greyscale_image)
+    cv2.imwrite(not_working_out + img_name, output_image)
+
