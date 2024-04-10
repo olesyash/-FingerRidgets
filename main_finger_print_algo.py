@@ -10,10 +10,11 @@ from second_imlementation import SecondImplementation
 
 
 class ConcreteFingerRegionRecognizer(FingerRegionRecognizer):
-    def normalize_and_segment(self, img, block_size=16, std_threshold=0.05):
-    
+    def normalize_image(self, img) -> str:
         img_normalized = (img - np.min(img)) / (np.max(img) - np.min(img))
-
+        return img_normalized
+        
+    def segment_image(self, img_normalized, block_size=16, std_threshold=0.05):
         # Iterate over blocks and checks the std_dev
         rows, cols = img_normalized.shape
         mask = np.zeros((rows, cols), dtype=bool)
@@ -32,8 +33,6 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizer):
 
 
     def lines_orientation(self, img, grad_rate=1, block_rate=7, orient_smooth_rate=7):
-    
-
         gradient_kernel = cv2.getGaussianKernel(np.int_(6 * grad_rate + 1), grad_rate)
         gradient_matrix = gradient_kernel * gradient_kernel.T
         gy, gx = np.gradient(gradient_matrix)
@@ -271,7 +270,8 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizer):
         # remove white stop from the bottom
         print(image.shape)
         cropped_img = image[:-32, :]
-        mask, normalized_img = self.normalize_and_segment(cropped_img)
+        normalized_img = self.normalize_image(cropped_img)
+        mask, normalized_img = self.segment_image(normalized_img)
 
         orientation = self.lines_orientation(normalized_img)
 
@@ -310,11 +310,11 @@ if __name__ == '__main__':
     greyscale_image = cv2.imread(img_name, 0)
     print(img_name)
 
-    # working_alg = ConcreteFingerRegionRecognizer()
-    # output_image = working_alg.count_fingerprint_ridges(greyscale_image)
-    # cv2.imwrite(output_path + img_name, output_image)
+    working_alg = ConcreteFingerRegionRecognizer()
+    output_image = working_alg.count_fingerprint_ridges(greyscale_image)
+    cv2.imwrite(os.path.join(output_path, os.path.basename(img_name)), output_image)
 
-    not_working_alg = SecondImplementation()
-    output_image_not_working = not_working_alg.count_fingerprint_ridges(greyscale_image)
-    cv2.imwrite(not_working_out + img_name, output_image)
+    # not_working_alg = SecondImplementation()
+    # output_image_not_working = not_working_alg.count_fingerprint_ridges(greyscale_image)
+    # cv2.imwrite(not_working_out + img_name, output_image)
 

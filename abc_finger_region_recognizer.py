@@ -6,9 +6,12 @@ class FingerRegionRecognizer(ABC):
     must implement.
     """
     @abstractmethod
-    def normalize_and_segment(self) -> str:
+    def normalize_image(self) -> str:
         pass
 
+    @abstractmethod
+    def segment_image(self) -> str:
+        pass
 
     @abstractmethod
     def lines_orientation(self) -> str:
