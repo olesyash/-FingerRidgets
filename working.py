@@ -7,6 +7,7 @@ from scipy.ndimage import rotate, grey_dilation
 import argparse
 from abc_finger_region_recognizer import FingerRegionRecognizerTemplate
 
+
 class ConcreteFingerRegionRecognizer(FingerRegionRecognizerTemplate):
     def __init__(self) -> None:
         super().__init__()
@@ -39,6 +40,7 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizerTemplate):
         return mask, img_norm_masked
     
     def normalize_image(self, img) -> str:
+        print("Run overwrite working normalization")
         cropped_img = img[:-32, :]
         img_normalized = (cropped_img - np.min(cropped_img)) / (np.max(cropped_img) - np.min(cropped_img))
         return img_normalized
@@ -58,7 +60,7 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizerTemplate):
         masked_image = img_normalized[mask]
         # normalize whole image
         img_norm_masked = (img_normalized - np.mean(masked_image)) / np.std(masked_image)
-        return mask, img_norm_masked
+        return mask, img_normalized, img_norm_masked
 
 
     def lines_orientation(self, img, grad_rate=1, block_rate=7, orient_smooth_rate=7):
@@ -300,9 +302,9 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizerTemplate):
         print(image.shape)
         # cropped_img = image[:-32, :]
         normalized_img = self.normalize_image(image)
-        mask, normalized_img = self.segment_image(normalized_img)
+        mask, normim, normalized_img = self.segment_image(normalized_img)
 
-        orientation = self.lines_orientation(normalized_img)
+        orientation = self.lines_orientation(normim)
 
         frequency = self.calculate_ridge_frequencies(normalized_img, orientation, mask)
 

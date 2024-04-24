@@ -12,40 +12,152 @@ class FingerRegionRecognizerTemplate(ABC):
     The FingerReGionRecognizer template has few implemetned functions and it declares the operations that all concrete FingerRegionRecognizers
     must implement.
     """
-    @abstractmethod
-    def normalize_image(self) -> str:
-        pass
 
-    @abstractmethod
-    def segment_image(self) -> str:
-        pass
+    def normalize_image(self, img) -> str:
+        print("Run working normalization")
+        cropped_img = img[:-32, :]
+        img_normalized = (cropped_img - np.min(cropped_img)) / (np.max(cropped_img) - np.min(cropped_img))
+        return img_normalized
 
-    @abstractmethod
-    def lines_orientation(self) -> str:
-        pass
+    def segment_image(self, img_normalized, block_size=16, std_threshold=0.05):
+        print("Run working segmentation")
+        # Iterate over blocks and checks the std_dev
+        rows, cols = img_normalized.shape
+        mask = np.zeros((rows, cols), dtype=bool)
+        for i in range(0, rows, block_size):
+            for j in range(0, cols, block_size):
+                block = img_normalized[i:i + block_size, j:j + block_size]
+                std_dev = np.std(block)
+                # if higher than threshold, means it's a ROI
+                mask[i:i + block_size, j:j + block_size] = std_dev > std_threshold
 
-    @abstractmethod
-    def calculate_ridge_frequencies(self) -> str:
-        pass
+        # normalize ROIs
+        masked_image = img_normalized[mask]
+        # normalize whole image
+        img_norm_masked = (img_normalized - np.mean(masked_image)) / np.std(masked_image)
+        return mask, img_normalized, img_norm_masked
 
-    @abstractmethod
-    def apply_gabor_filter(self) -> str:
-        pass
+    # @abstractmethod
+    # def normalize_image(self) -> str:
+    #     pass
+    #
+    # @abstractmethod
+    # def segment_image(self) -> str:
+    #     pass
 
-    @abstractmethod
-    def calculate_ridge_frequencies(self) -> str:
-        pass
+    # @abstractmethod
+    # def lines_orientation(self) -> str:
+    #     pass
 
+    # @abstractmethod
+    # def calculate_ridge_frequencies(self) -> str:
+    #     pass
+    #
+    # @abstractmethod
+    # def apply_gabor_filter(self) -> str:
+    #     pass
+    def calculate_block_frequencies(self, block_image, block_orientation, window_size, min_wavelength, max_wavelength):
+        cos_orient = np.mean(np.cos(2 * block_orientation))
+        sin_orient = np.mean(np.sin(2 * block_orientation))
+        orientation = np.arctan2(sin_orient, cos_orient) / 2
 
-    def template_method(self) -> None:
-        """
-        The FingerRegionRecognizer template method defines the skeleton of an algorithm.
-        """
-        self.normalize_image()
-        self.segment_image()
-        self.lines_orientation()
-        self.calculate_ridge_frequencies()
-        self.apply_gabor_filter()
+        rotated_image = rotate(block_image, orientation / np.pi * 180 + 90, axes=(1, 0), reshape=False,
+                               order=3, mode='nearest')
+        crop_size = np.sqrt(block_image.shape[0] * block_image.shape[1] / 2).astype(np.int_)
+        offset = (block_image.shape[0] - crop_size) // 2
+        cropped_image = rotated_image[offset:offset + crop_size, offset:offset + crop_size]
+
+        projection = np.sum(cropped_image, axis=0)
+        dilation = grey_dilation(projection, window_size, structure=np.ones(window_size))
+        noise = np.abs(dilation - projection)
+        peak_thresh = 2
+        max_pts = (noise < peak_thresh) & (projection > np.mean(projection))
+        max_ind = np.where(max_pts)
+        num_peaks = len(max_ind[0])
+        if num_peaks < 2:
+            return np.zeros(block_image.shape)
+        else:
+            wavelength = (max_ind[0][-1] - max_ind[0][0]) / (num_peaks - 1)
+            if min_wavelength <= wavelength <= max_wavelength:
+                return 1 / np.double(wavelength) * np.ones(block_image.shape)
+            else:
+                return np.zeros(block_image.shape)
+
+    def calculate_ridge_frequencies(self, image, orientation, mask, block_size=38, window_size=5, min_wavelength=5,
+                                    max_wavelength=15):
+
+        frequencies = np.zeros_like(image)
+
+        for row in range(0, frequencies.shape[0] - block_size, block_size):
+            for col in range(0, frequencies.shape[1] - block_size, block_size):
+                block_image = image[row:row + block_size, col:col + block_size]
+                block_orientation = orientation[row:row + block_size, col:col + block_size]
+                frequencies[row:row + block_size, col:col + block_size] = self.calculate_block_frequencies(block_image,
+                                                                                                           block_orientation,
+                                                                                                           window_size,
+                                                                                                           min_wavelength,
+                                                                                                           max_wavelength)
+        masked_frequencies = frequencies * mask
+        non_zero_elements = masked_frequencies[mask > 0]
+        mean_frequency = np.mean(non_zero_elements)
+        return mean_frequency * mask
+
+    def apply_gabor_filter(self, image, frequency, orientation, threshold=-2, kx=0.65, ky=0.65, angle_increment=3):
+        image = image.astype(np.float64)
+        rows, cols = image.shape
+        filtered_image = np.zeros((rows, cols))
+
+        non_zero_freqs = frequency.ravel()[frequency.ravel() > 0]
+        rounded_freqs = np.round(non_zero_freqs * 100) / 100
+        unique_freqs = np.unique(rounded_freqs)
+
+        sigma_x = 1 / unique_freqs[0] * kx
+        sigma_y = 1 / unique_freqs[0] * ky
+        filter_size = np.int_(np.round(3 * np.max([sigma_x, sigma_y])))
+
+        x, y = np.meshgrid(np.arange(-filter_size, filter_size + 1), np.arange(-filter_size, filter_size + 1))
+        exponent = ((x / sigma_x) ** 2 + (y / sigma_y) ** 2) / 2
+        reference_filter = np.exp(-exponent) * np.cos(2 * np.pi * unique_freqs[0] * x)
+        angle_range = int(180 / angle_increment)
+        gabor_filters = np.array(
+            [rotate(reference_filter, -(o * angle_increment + 90), reshape=False) for o in range(angle_range)])
+
+        max_size = filter_size
+        valid_rows, valid_cols = np.where(frequency > 0)
+        valid_indices = np.where((valid_rows > max_size) & (valid_rows < rows - max_size) & (valid_cols > max_size) & (
+                valid_cols < cols - max_size))[0]
+        max_orient_index = int(np.round(180 / angle_increment))
+        orient_index = np.round(orientation / np.pi * 180 / angle_increment).astype(np.int32)
+        orient_index[orient_index < 1] += max_orient_index
+        orient_index[orient_index > max_orient_index] -= max_orient_index
+
+        for k in valid_indices:
+            r = valid_rows[k]
+            c = valid_cols[k]
+            img_block = image[r - filter_size:r + filter_size + 1, c - filter_size:c + filter_size + 1]
+            filtered_image[r, c] = np.sum(img_block * gabor_filters[orient_index[r, c] - 1])
+
+        binary_image = (filtered_image < threshold) * 255
+
+        return (255 - binary_image).astype(np.uint8)
+
+    def count_fingerprint_ridges(self, input_img):
+        normalized_img = self.normalize_image(input_img)
+        mask, normim, normalized_img = self.segment_image(normalized_img)
+
+        orientation = self.lines_orientation(normim, mask, normalized_img)
+
+        frequency = self.calculate_ridge_frequencies(normalized_img, orientation, mask)
+
+        enhanced_image = self.apply_gabor_filter(normalized_img, frequency, orientation)
+
+        thin_image = self.skeletonize(enhanced_image)
+        minutiae_weights_image = self.calculate_minutiae_weights(thin_image)
+
+        block_size = 15  # 120/8
+        best_region = self.get_best_region(thin_image, minutiae_weights_image, block_size, mask)
+        result_image = self.draw_ridges_count_on_region(best_region, input_img, thin_image, block_size)
+        return result_image
 
     def skeletonize(self, img):
         binary_image = np.zeros_like(img)
@@ -133,6 +245,30 @@ class FingerRegionRecognizerTemplate(ABC):
         if best_region:
             return best_region
 
+    def lines_orientation(self, img, mask, segmented_image, grad_rate=1, block_rate=7, orient_smooth_rate=7, smoth=False):
+        gradient_kernel = cv2.getGaussianKernel(np.int_(6 * grad_rate + 1), grad_rate)
+        gradient_matrix = gradient_kernel * gradient_kernel.T
+        gy, gx = np.gradient(gradient_matrix)
+        gradient_x = ndimage.convolve(img, gx, mode='constant', cval=0.0)
+        gradient_y = ndimage.convolve(img, gy, mode='constant', cval=0.0)
+        Gxx, Gyy, Gxy = gradient_x ** 2, gradient_y ** 2, gradient_x * gradient_y
+        block_kernel = cv2.getGaussianKernel(6 * block_rate, block_rate)
+        block_matrix = block_kernel * block_kernel.T
+        Gxx = ndimage.convolve(Gxx, block_matrix, mode='constant', cval=0.0)
+        Gyy = ndimage.convolve(Gyy, block_matrix, mode='constant', cval=0.0)
+        Gxy = 2 * ndimage.convolve(Gxy, block_matrix, mode='constant', cval=0.0)
+        determinant = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2)
+        determinant = np.where(determinant == 0, np.finfo(float).eps, determinant)
+        determinant += np.finfo(float).eps
+        sin_2theta = Gxy / determinant
+        cos_2theta = (Gxx - Gyy) / determinant
+        if orient_smooth_rate:
+            smooth_kernel = cv2.getGaussianKernel(np.int_(6 * orient_smooth_rate + 1), orient_smooth_rate)
+            smooth_matrix = smooth_kernel * smooth_kernel.T
+            cos_2theta = ndimage.convolve(cos_2theta, smooth_matrix, mode='constant', cval=0.0)
+            sin_2theta = ndimage.convolve(sin_2theta, smooth_matrix, mode='constant', cval=0.0)
+        orientation = np.pi / 2 + np.arctan2(sin_2theta, cos_2theta) / 2
+        return [], orientation
 
     def draw_ridges_count_on_region(self, region, input_image, thin_image, block_size):
         output_image = cv2.cvtColor(input_image.copy(), cv2.COLOR_GRAY2RGB)
