@@ -48,38 +48,38 @@ if __name__ == '__main__':
     working_alg = ConcreteFingerRegionRecognizer()
     not_working_alg = SecondImplementation()
    
-    # working_image = client_code(working_alg, greyscale_image1)
-    # print("Saving working image to: ", nw_output_path)
-    # cv2.imwrite(output_path, working_image)
+    working_image = client_code(working_alg, greyscale_image1)
+    print("Saving working image to: ", output_path)
+    cv2.imwrite(output_path, working_image)
     
-    # not_working_image = client_code(not_working_alg, greyscale_image2)
-    # print("Saving not working image to: ", nw_output_path)
-    # cv2.imwrite(nw_output_path, not_working_image)
+    not_working_image = client_code(not_working_alg, greyscale_image2)
+    print("Saving not working image to: ", nw_output_path)
+    cv2.imwrite(nw_output_path, not_working_image)
 
-    normalized_img1 = working_alg.normalize_image(greyscale_image1)
-    original_img = working_alg.unnormilize_image(normalized_img1)
-    normalized_img2 = not_working_alg.normalize_image(greyscale_image2)
-
-    # Convert the images from BGR to RGB
-    img2 = normalized_img2
-    img1 = normalized_img1.astype('float32')
-    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
-    img2 = cv2.cvtColor(normalized_img2, cv2.COLOR_BGR2RGB)
-
-    # Create a figure with two subplots
-    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-
-    # Display the images
-    axs[0].imshow(img1)
-    axs[0].set_title('Working algorithm: Normalize')
-    axs[0].axis('off')
-
-    axs[1].imshow(img2)
-    axs[1].set_title('Not working algorithm: Normalize')
-    axs[1].axis('off')
-
-    # Save the figure
-    fig.savefig("combined.png")
+    # normalized_img1 = working_alg.normalize_image(greyscale_image1)
+    # original_img = working_alg.unnormilize_image(normalized_img1)
+    # normalized_img2 = not_working_alg.normalize_image(greyscale_image2)
+    #
+    # # Convert the images from BGR to RGB
+    # img2 = normalized_img2
+    # img1 = normalized_img1.astype('float32')
+    # img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+    # img2 = cv2.cvtColor(normalized_img2, cv2.COLOR_BGR2RGB)
+    #
+    # # Create a figure with two subplots
+    # fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+    #
+    # # Display the images
+    # axs[0].imshow(img1)
+    # axs[0].set_title('Working algorithm: Normalize')
+    # axs[0].axis('off')
+    #
+    # axs[1].imshow(img2)
+    # axs[1].set_title('Not working algorithm: Normalize')
+    # axs[1].axis('off')
+    #
+    # # Save the figure
+    # fig.savefig("combined.png")
     # # # Compare normalization results
     # cv2.imwrite("normilized1.png", original_img)
     # cv2.imwrite("normilized2.png", normalized_img2)

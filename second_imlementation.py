@@ -1,3 +1,5 @@
+import cv2
+
 from abc_finger_region_recognizer import FingerRegionRecognizerTemplate
 import cv2 as cv
 from glob import glob
@@ -45,15 +47,23 @@ class SecondImplementation(FingerRegionRecognizerTemplate):
         freq = ridge_freq(normim, mask, angles, block_size, kernel_size=5, minWaveLength=5, maxWaveLength=15)
         return freq
     
-    def apply_gabor_filter(self, normim, angles, freq) -> str:
-        # create gabor filter and do the actual filtering
-        gabor_img = gabor_filter(normim, angles, freq)
-        return gabor_img
+    # def apply_gabor_filter(self, normim, angles, freq) -> str:
+    #     # create gabor filter and do the actual filtering
+    #     gabor_img = gabor_filter(normim, angles, freq)
+    #     return gabor_img
 
     def count_fingerprint_ridges(self, input_img):
+        input_img = input_img[:-32, :]
         normalized_img = self.normalize_image(input_img)
         segmented_img, normim, mask = self.segment_image(normalized_img, self.block_size)
+        print("segmented_img shape")
+        print(segmented_img.shape)
         angles, orientation_img = self.lines_orientation(normim, mask, segmented_img, 16, smoth=False)
+        print(orientation_img.shape)
+        orientation_img_gray = cv2.cvtColor(orientation_img, cv2.COLOR_BGR2GRAY)
+        print("angles shape")
+        print(orientation_img_gray.shape)
+        print(angles.shape)
 
         # color threshold
         # threshold_img = normalized_img
@@ -61,10 +71,12 @@ class SecondImplementation(FingerRegionRecognizerTemplate):
         # cv.imshow('color_threshold', normalized_img); cv.waitKeyEx()
 
         # find the overall frequency of ridges in Wavelet Domain
-        freq = ridge_freq(normim, mask, angles, self.block_size, kernel_size=5, minWaveLength=5, maxWaveLength=15)
-
+        freq = self.calculate_ridge_frequencies(normim, mask, angles, self.block_size, kernel_size=5,
+                                                minWaveLength=5, maxWaveLength=15)
+        print("freq shape")
+        print(freq.shape)
         # create gabor filter and do the actual filtering
-        gabor_img = gabor_filter(normim, angles, freq)
+        gabor_img = self.apply_gabor_filter(segmented_img, freq, orientation_img_gray)
 
         thin_image = self.skeletonize(gabor_img)
         minutiae_weights_image = self.calculate_minutiae_weights(thin_image)

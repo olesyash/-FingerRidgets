@@ -301,10 +301,14 @@ class ConcreteFingerRegionRecognizer(FingerRegionRecognizerTemplate):
         # cropped_img = image[:-32, :]
         normalized_img = self.normalize_image(image)
         mask, normalized_img = self.segment_image(normalized_img)
+        print("segmented image shape")
+        print(normalized_img.shape)
 
         orientation = self.lines_orientation(normalized_img)
-
+        print(orientation.shape)
         frequency = self.calculate_ridge_frequencies(normalized_img, orientation, mask)
+        print("frequency shape")
+        print(frequency.shape)
 
         enhanced_image = self.apply_gabor_filter(normalized_img, frequency, orientation)
 

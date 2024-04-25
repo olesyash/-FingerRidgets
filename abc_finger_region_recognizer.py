@@ -28,9 +28,48 @@ class FingerRegionRecognizerTemplate(ABC):
     def calculate_ridge_frequencies(self) -> str:
         pass
 
-    @abstractmethod
-    def apply_gabor_filter(self) -> str:
-        pass
+    # @abstractmethod
+    # def apply_gabor_filter(self) -> str:
+    #     pass
+
+    def apply_gabor_filter(self, image, frequency, orientation, threshold=-2, kx=0.65, ky=0.65, angle_increment=3):
+        image = image.astype(np.float64)
+        rows, cols = image.shape
+        filtered_image = np.zeros((rows, cols))
+
+        non_zero_freqs = frequency.ravel()[frequency.ravel() > 0]
+        rounded_freqs = np.round(non_zero_freqs * 100) / 100
+        unique_freqs = np.unique(rounded_freqs)
+
+        sigma_x = 1 / unique_freqs[0] * kx
+        sigma_y = 1 / unique_freqs[0] * ky
+        filter_size = np.int_(np.round(3 * np.max([sigma_x, sigma_y])))
+
+        x, y = np.meshgrid(np.arange(-filter_size, filter_size + 1), np.arange(-filter_size, filter_size + 1))
+        exponent = ((x / sigma_x) ** 2 + (y / sigma_y) ** 2) / 2
+        reference_filter = np.exp(-exponent) * np.cos(2 * np.pi * unique_freqs[0] * x)
+        angle_range = int(180 / angle_increment)
+        gabor_filters = np.array(
+            [rotate(reference_filter, -(o * angle_increment + 90), reshape=False) for o in range(angle_range)])
+
+        max_size = filter_size
+        valid_rows, valid_cols = np.where(frequency > 0)
+        valid_indices = np.where((valid_rows > max_size) & (valid_rows < rows - max_size) & (valid_cols > max_size) & (
+                valid_cols < cols - max_size))[0]
+        max_orient_index = int(np.round(180 / angle_increment))
+        orient_index = np.round(orientation / np.pi * 180 / angle_increment).astype(np.int32)
+        orient_index[orient_index < 1] += max_orient_index
+        orient_index[orient_index > max_orient_index] -= max_orient_index
+
+        for k in valid_indices:
+            r = valid_rows[k]
+            c = valid_cols[k]
+            img_block = image[r - filter_size:r + filter_size + 1, c - filter_size:c + filter_size + 1]
+            filtered_image[r, c] = np.sum(img_block * gabor_filters[orient_index[r, c] - 1])
+
+        binary_image = (filtered_image < threshold) * 255
+
+        return (255 - binary_image).astype(np.uint8)
 
     @abstractmethod
     def calculate_ridge_frequencies(self) -> str:
